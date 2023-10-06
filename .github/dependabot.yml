@@ -1,6 +1,5 @@
 # By using the dependabot.yml file, you can have fine-grained control over how the Dependabot tool operates and keeps your project's dependencies up to date. 
 # It helps automate dependency management and reduce the risk of using outdated or vulnerable dependencies.
-
 version: 2
 updates:
   - package-ecosystem: "gomod"
