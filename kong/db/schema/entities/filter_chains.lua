@@ -1,6 +1,7 @@
 local typedefs = require "kong.db.schema.typedefs"
 local wasm = require "kong.runloop.wasm"
 local constants = require "kong.constants"
+local json_schema = require "kong.db.schema.json"
 
 
 ---@class kong.db.schema.entities.filter_chain : table
@@ -20,8 +21,7 @@ local constants = require "kong.constants"
 ---
 ---@field name        string
 ---@field enabled     boolean
----@field config      string|nil
----@field json_config any|nil
+---@field config      any|nil
 
 
 local filter = {
@@ -29,27 +29,25 @@ local filter = {
   fields = {
     { name       = { type = "string", required = true, one_of = wasm.filter_names,
                      err = "no such filter", }, },
-    { config     = { type = "string", required = false, }, },
     { enabled    = { type = "boolean", default = true, required = true, }, },
 
-    { json_config = {
+    { config = {
         type = "json",
         required = false,
         json_schema = {
           parent_subschema_key = "name",
           namespace = constants.SCHEMA_NAMESPACES.PROXY_WASM_FILTERS,
           optional = true,
+          default = {
+            ["$schema"] = json_schema.DRAFT_4,
+            -- filters with no user-defined JSON schema may accept an optional
+            -- config, but only as a string
+            type = { "string", "null" },
+          },
         },
       },
     },
 
-  },
-  entity_checks = {
-    { mutually_exclusive = {
-        "config",
-        "json_config",
-      },
-    },
   },
 }
 

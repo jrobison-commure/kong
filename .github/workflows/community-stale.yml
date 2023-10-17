@@ -10,10 +10,13 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/stale@v5
+      - uses: actions/stale@v8
         with:
           days-before-stale: 14
           days-before-close: 7
+          only-labels: "pending author feedback"
+          exempt-pr-labels: "pinned,security"
+          exempt-issue-labels: "pinned,security"
           stale-issue-label: "stale"
           stale-issue-message: "This issue is marked as stale because it has been open for 14 days with no activity."
           close-issue-message: |

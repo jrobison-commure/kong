@@ -158,7 +158,7 @@ describe("filter metadata [#" .. strategy .. "]", function()
         filters = {
           {
             name = "rt_with_validation",
-            json_config = {}, -- empty
+            config = {}, -- empty
           },
         },
       })
@@ -185,7 +185,7 @@ describe("filter metadata [#" .. strategy .. "]", function()
         assert.same({
           filters = {
             {
-              json_config = "property add is required"
+              config = "property add is required"
             }
           }
         }, body.fields)
@@ -197,7 +197,7 @@ describe("filter metadata [#" .. strategy .. "]", function()
         filters = {
           {
             name = "rt_with_validation",
-            json_config = {
+            config = {
               add = {
                 headers = {
                   "x-foo:123",
@@ -217,7 +217,7 @@ describe("filter metadata [#" .. strategy .. "]", function()
       end).has_no_error()
     end)
 
-    it("filters without config schemas are not validated", function()
+    it("filters without config schemas can only accept a string", function()
       local host = random_name() .. ".test"
 
       local res = create_filter_chain(host, {
@@ -225,11 +225,36 @@ describe("filter metadata [#" .. strategy .. "]", function()
         filters = {
           {
             name = "rt_no_validation",
-            json_config = {
+            config = {
               add = {
                 headers = 1234,
               },
-            },
+            }
+          },
+        },
+      })
+
+      assert.response(res).has.status(400)
+      local body = assert.response(res).has.jsonbody()
+      assert.same({
+        filters = {
+          { config = "wrong type: expected one of string, null, got object" }
+        }
+      }, body.fields)
+    end)
+
+    it("filters without config schemas are not validated", function()
+      local host = random_name() .. ".test"
+      local res = create_filter_chain(host, {
+        name = random_name(),
+        filters = {
+          {
+            name = "rt_no_validation",
+            config = cjson.encode({
+              add = {
+                headers = 123,
+              },
+            }),
           },
         },
       })
@@ -242,7 +267,55 @@ describe("filter metadata [#" .. strategy .. "]", function()
         assert.logfile().has.line("failed parsing filter config", true, 0)
       end).has_no_error()
     end)
+  end)
 
+  describe("API", function()
+    describe("GET /schemas/filters/:name", function()
+      it("returns a 404 for unknown filters", function()
+        local res = admin:get("/schemas/filters/i-do-not-exist")
+        assert.response(res).has.status(404)
+        local json = assert.response(res).has.jsonbody()
+        assert.same({ message = "Filter 'i-do-not-exist' not found" }, json)
+      end)
+
+      it("returns a schema for filters that have it", function()
+        local res = admin:get("/schemas/filters/rt_with_validation")
+        assert.response(res).has.status(200)
+        local json = assert.response(res).has.jsonbody()
+
+        assert.same(
+          {
+            ["$schema"] = "http://json-schema.org/draft-04/schema#",
+            type = "object",
+            properties = {
+              add = {
+                type = "object",
+                properties = {
+                  headers = {
+                    type = "array",
+                    elements = { type = "string" },
+                  },
+                },
+                required = { "headers" },
+              },
+            },
+            required = { "add" },
+          },
+          json
+        )
+      end)
+
+      it("returns the default schema for filters without schemas", function()
+        local res = admin:get("/schemas/filters/rt_no_validation")
+        assert.response(res).has.status(200)
+        local json = assert.response(res).has.jsonbody()
+
+        assert.same({
+          ["$schema"] = "http://json-schema.org/draft-04/schema#",
+          type = { "string", "null" }
+        }, json)
+      end)
+    end)
   end)
 
 end)
